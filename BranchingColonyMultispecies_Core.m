@@ -26,13 +26,13 @@ ntips = max(ntips, 2);  % initial branch number cannot be less than 2
 Tipx = cell(3, 1); Tipx(:) = {zeros(ntips, totalt / dt_updatebranch + 2)};
 Tipy = cell(3, 1); Tipy(:) = {zeros(ntips, totalt / dt_updatebranch + 2)};
 
-swarmingMot = zeros(ntips, 3); % swarming motility contributed by each branch of each species
+CooperMot = zeros(ntips, 3); % cooperative motility contributed by each branch of each species
 
 theta = linspace(0, 2 * pi, ntips + 1)' + rand * 0;
 theta = theta(1 : ntips) * ones(1, 3);  % growth directions of each branch of each species
 delta = linspace(-1, 1, 201) * pi;
 
-[MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
+[MatV1N,MatV2N,MatU1N,MatU2N] = diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
 
 aCs = cell(3, 1);
 hs  = cell(3, 1);
@@ -79,7 +79,7 @@ for i = 0 : nt
         Tipx{j}(:, ib) = Tipx{j}(:, max(1, ib - 1));
         Tipy{j}(:, ib) = Tipy{j}(:, max(1, ib - 1));         
         
-        % calculate nutrient-dependent swarming coefficient
+        % calculate nutrient-dependent cooperative motility coefficient
         hs{j} = hs_act(j) * ones(nx, ny);
         hs{j}(N > N_upper | N < N_lower) = 0; % swarm only when nutrient is within the range
         
@@ -89,15 +89,11 @@ for i = 0 : nt
 
     for j = find(initialFract > 0)
         
-        % update width and density with time
-%         currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
-%         currFracts = currFracts ./ sum(currFracts); 
-%         branchDensity = currFracts * Densities';
-%         branchWidth   = currFracts * Widths';      
-         nn = ntips;
+        % update width and density with time  
+        nn = ntips;
         tipFracts = zeros(nn, 3);
         for jj = find(initialFract > 0) 
-        tipFracts(:, jj) = interp2(xx, yy, localFracts{jj}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
+            tipFracts(:, jj) = interp2(xx, yy, localFracts{jj}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
         end
         branchDensity = tipFracts * Densities';
         branchWidth   = tipFracts * Widths';
@@ -106,8 +102,7 @@ for i = 0 : nt
         maxbranchWidth = sqrt(Tipx{j}(:,ib) .^ 2 + Tipy{j}(:,ib) .^ 2) + r0;
         branchWidth(branchWidth > maxbranchWidth) = maxbranchWidth(branchWidth > maxbranchWidth);
 
-        % get swarming motility contributed by each branch of each species
-        
+        % get cooperative motility contributed by each branch of each species        
         temp = zeros(nx, ny);
         for jj = find(initialFract > 0) 
             temp = temp + hs{jj} .* cellGrowth{jj};
@@ -115,13 +110,12 @@ for i = 0 : nt
         for k = 1 : nn
             d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
             ind = d <= branchWidth(k)/2; % the tip of the kth branch of the jth species
-            swarmingMot(k,jj) = sum(temp .* ind,'all'); 
-            % swarming motility contributed by the jjth species within the kth branch of the jth species
+            CooperMot(k,jj) = sum(temp .* ind,'all'); 
+            % cooperative motility contributed by the jjth species within the kth branch of the jth species
         end
 
         % extension rate of each branch  
-%         aCs_tip = interp2(xx, yy, aCs{j}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)); % actual growth rate at each branch tip
-        dl = (gs(j) + rs(j) .* sum(swarmingMot(1:nn,:), 2))./ branchWidth;
+        dl = (gs(j) + rs(j) .* sum(CooperMot(1:nn,:), 2))./ branchWidth;
         if i == 0; dl = 0.5; end
         
         % make slower species follow faster species
@@ -180,8 +174,9 @@ for i = 0 : nt
         C{j} = C_pre{j} + sum(cellGrowth{j}(:)) / sum(remainCapacity(:)) * remainCapacity / (dx * dy);
 
         % plot
-        Plotting
-        
+        if mod(i, round(plotgap/dt)) == 0; plotting; end
+        if saveintermediateimages && mod(i, 100) == 0; MakeFigure_cooperationregions; end
+
     end
     
     C_pre = C;

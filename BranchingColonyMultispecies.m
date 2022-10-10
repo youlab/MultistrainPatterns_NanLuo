@@ -1,183 +1,118 @@
-%% One ratio
-clear
-initialRatio = [1, 1, 1];   % initial ratio of all species
-initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
+%% Figure 4B
+% Generate patterns and compute biomass of multispecies colonies
 
+clear; 
+initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1]; % initial ratio of WT:cheater:hyperswarmer
+
+load 'parameters.mat'
+Output_Biomass = zeros(size(initRatios, 1), 3); % the final biomass of each species 
+
+for iter = 1 : length(initRatios)
+    
+    fprintf('iter = %d\n', iter)
+    initialRatio = initRatios(iter, :);
+    initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
+    SetParameters
+    BranchingColonyMultispecies_Core
+
+    filename = ['results\Fig4B_' num2str(iter,'%02d')];    
+    MakeFigure_patterns
+    Output_Biomass(iter, :) = Biomass;
+    
+end
+
+save('results\Fig4B_biomass.mat', 'initRatios', 'Output_Biomass')
+
+
+%% Figure S9 (& Figure 5A)
+% Competition between species on solid or in liquid
+% compute final ratios when initiate with varying initial ratios
+
+clear; 
+ratios = 10.^(linspace(-3,3,61))';
+initRatios = zeros(length(ratios), 3);
+% prefix = 'CTvsWT'; ra = 2; rb = 1; % Cheater : WT
+% prefix = 'CTvsHS'; ra = 2; rb = 3; % Cheater : hyperswarmer
+prefix = 'HSvsWT'; ra = 3; rb = 1; % Hyperswarmer : WT
+initRatios(:, ra) = ratios; initRatios(:, rb) = ones(length(ratios), 1);
+
+load 'parameters.mat'
+Output_Biomass_solid = zeros(size(initRatios, 1), 3); % the final biomass of each species
+Output_Biomass_liquid = zeros(size(initRatios, 1), 3); 
+
+for iter = 1 : length(initRatios)
+    
+    fprintf('iter = %d\n', iter)
+    initialRatio = initRatios(iter, :);
+    initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
+    SetParameters
+
+    BranchingColonyMultispecies_Core
+    Output_Biomass_solid(iter, :) = Biomass;
+    
+    LiquidCulture
+    Output_Biomass_liquid(iter, :) = Biomass;
+
+end
+
+finalRatios_solid = Output_Biomass_solid(:, ra) ./ Output_Biomass_solid(:, rb);
+finalRatios_liquid = Output_Biomass_liquid(:, ra) ./ Output_Biomass_liquid(:, rb);
+
+save(['results\FigS9_' prefix '_biomass.mat'], 'initRatios', 'Output_Biomass_solid', 'finalRatios_solid', 'Output_Biomass_liquid', 'finalRatios_liquid')
+
+%% Figure 5BC
+% Show regions of cooperation on solid medium (Fig 5C)
+
+clear; 
+% initialRatio = [1 0 0]; prefix = 'WT'; % Wildtype alone
+initialRatio = [1 1 0]; prefix = 'WT+CT'; % Wildtype + cheater
+load 'parameters.mat'
+
+initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 SetParameters
+saveintermediateimages = true;
 BranchingColonyMultispecies_Core
 
-%% Multiple ratios & varying N0
-clear; 
+% Period of cooperation during liquid growth (Fig 5B)
+LiquidCulture
+t = (0 : dt : totalt)';
+cooperPeriod = aCsV(:,1) < max(aCs_act); % cooperation period
+cooperPeriod(1) = 0;
+Results = [t, C, N, double(cooperPeriod)];
+save(['results\Fig5B_' prefix '_liquidgrowth.mat'], 'C', 'N', 't', 'cooperPeriod', 'Results')
 
-% initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1]; prefix = 'pyramid'; ra = 1; rb = 1;
-WC_ratios = 10.^(linspace(-3,1,41))'; initRatios = [ones(length(WC_ratios),1), WC_ratios, zeros(length(WC_ratios),1)]; prefix = 'WC'; ra = 2; rb = 1;
-% CH_ratios = 10.^(linspace(-4, 4, 25))'; initRatios = [zeros(length(CH_ratios),1), CH_ratios, ones(length(CH_ratios),1)]; prefix = 'CH_C0x0.01'; ra = 2; rb = 3;
-% WH_ratios = 10.^(linspace(-3,1,41))'; initRatios = [ones(length(WH_ratios),1), zeros(length(WH_ratios),1), WH_ratios]; prefix = 'WH'; ra = 3; rb = 1;
-% initRatios = [1 1 1; 1 0.01 0.01; 0.5 0.5 0.01; 0.5 0.01 0.5]; prefix = '3sp'; ra = 1; rb = 1;
-% initRatios = [1 1 1; 1 0.01 0.01]; prefix = '3sp'; ra = 1; rb = 1;
+%% Figure 6A
+% Evolution of population structure over multiple cycles
 
-N0V = 1; 
-% N0V = 1;
-finalRatios_N0 = zeros(size(initRatios, 1), length(N0V));
-% frontNutrient  = cell(3, 1); % #### recording nutrient
+clear;
+ndays = 7;
+N0V = [0.4 0.8 1.2 1.5]; 
 
 for iN = 1 : length(N0V)
 
-fprintf('N0 = %f\n', N0V(iN))
-% load 'parameters_local_2_cell7_ID681_tuned2.mat'
-load 'parameters_local_ve4_ID10872.mat'
-Parameters(3)  = Parameters(3) * N0V(iN);
-Parameters(10) = Parameters(10) / N0V(iN);
-Parameters(11) = Parameters(11) / N0V(iN);
-
-Output_Biomass = zeros(size(initRatios, 1), 3);
-Output_Sizes   = zeros(size(initRatios, 1), 3);
-Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
-
-for iter = 31:length(initRatios)
+    fprintf('N0 = %f\n', N0V(iN))
+    load 'parameters.mat'
+    Parameters(3)  = Parameters(3) * N0V(iN);  % change N0
+    Parameters(10) = Parameters(10) / N0V(iN); % keep the same N_upper
+    Parameters(11) = Parameters(11) / N0V(iN); % keep the same N_lower
     
-    fprintf('iter = %d\n', iter)
-    initialRatio = initRatios(iter, :);   % initial ratio of all species
-    initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
-    filename = ['results\' prefix '_N' num2str(iN)];
-    SetParameters
-
-    save([filename '_parameters.mat'])
-    
-%     idxN = 1; for j = 1 : 3; frontNutrient{j}(iN, idxN) = N0; end % #### recording nutrient
-    
-    filename = [filename '_' num2str(iter,'%02d')];
-    BranchingColonyMultispecies_Core
-    SaveFigure
-    save([filename '.mat'], 'BiomassV', 'C')
-    % save([picname '_' num2str(iter,'%02d') '_' num2str(iN) '.mat'])
-    Output_Biomass(iter, :) = Biomass;
-%     Output_Sizes(iter, :) = Sizes;
-    
-    LiquidCulture
-    Output_Biomass_Liq(iter, :) = Biomass;
-    save([filename '_liq.mat'], 'BiomassV', 'N', 'C')
-    
-    
-end
-
-finalRatio = Output_Biomass(:, ra) ./ Output_Biomass(:, rb);
-finalRatios_N0(:, iN) = finalRatio;
-save([filename '_results.mat'], 'initRatios', 'Output_Biomass', 'Output_Sizes', 'Output_Biomass_Liq')
-
-end
-
-save(['results\' prefix '_varyN0.mat'], 'N0V', 'finalRatios_N0')
-
-%% Multiple cycles (days)
-
-clear; 
-
-ndays = 7;
-initRatios = [1 1e-6 1e-6]; % ; 1 1e-4 1e-4; 1 0.01 0.01; 1 0.01 0; 1 0 0.01; 1 0.01 0; 1 0 0.01];
-addRatios  = [0 0 0]; %       0 0 0;    0 0 0.01; 0 0.01 0];
-prefix = 'evo_'; 
-N0V = [0.8]; 
-dayj = 4; % day # to add the third species
-
-for iN = 1
-
-fprintf('N0 = %f\n', N0V(iN))
-load 'parameters_local_2_cell7_ID681_tuned2.mat'
-Parameters(3)  = Parameters(3) * N0V(iN);
-Parameters(10) = Parameters(10) / N0V(iN);
-Parameters(11) = Parameters(11) / N0V(iN);
-
-Output_Biomass = zeros(size(initRatios, 1), 3);
-Output_Sizes   = zeros(size(initRatios, 1), 3);
-Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
-
-for iter = 1 : size(initRatios, 1)
-    
-    initialRatio = initRatios(iter, :);   % initial ratio of all species
+    initialRatio = [1 1e-7 1e-7];
     initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
     SetParameters
-    if iN == 1 && iter == 1; save(['results\' prefix '_' num2str(ndays) 'd_parameters.mat']); end
-    BiomassMultiDays = [];
+    BiomassDynamics = []; % record of the biomass of each species over multiple days
     
     for iday = 1 : ndays
         BranchingColonyMultispecies_Core
-        filename = ['results\' prefix '_N' num2str(N0V(iN)) '_' num2str(iter,'%02d') '_d' num2str(iday)];
-        SaveFigure
-        BiomassMultiDays = [BiomassMultiDays; BiomassV(1 : end - 1,:)]; 
+        BiomassDynamics = [BiomassDynamics; BiomassV(1 : end - 1,:)]; 
         initialRatio = BiomassV(end, :);
         initialFract = initialRatio / sum(initialRatio);
-        if iday == dayj
-            initialFract = initialFract + addRatios(iter, :); 
-            initialFract = initialFract / sum(initialFract);
-        end
         fprintf('Day %d\n', iday)
     end
-    BiomassMultiDays = [BiomassMultiDays; BiomassV(end, :)];
+    BiomassDynamics = [BiomassDynamics; BiomassV(end, :)];
     
-    save(['results\' prefix '_N' num2str(N0V(iN)) '_' num2str(iter,'%02d') '_' num2str(ndays) 'd.mat'], 'BiomassMultiDays','totalt','dt','ndays')
-    Output_Biomass(iter, :) = Biomass;
-    Output_Sizes(iter, :) = Sizes;
-    fprintf('iter = %d\n', iter)
-    
-end
+    filename = ['results\Fig6A_N0=' num2str(N0V(iN)) '_' num2str(ndays) 'days'];
+    save([filename '.mat'], 'BiomassDynamics','initialRatio','ndays')
+    MakeFigure_evolution
 
 end
 
-%% Test: HS lower growth rate
-clear; 
-
-pslow = 1;
-% WH_ratios = 0.01; initRatios = [ones(length(WH_ratios),1), zeros(length(WH_ratios),1), WH_ratios]; prefix = 'WH'; ra = 3; rb = 1;
-WC_ratios = 0.01; initRatios = [ones(length(WC_ratios),1), WC_ratios, zeros(length(WC_ratios),1)]; prefix = 'WC'; ra = 2; rb = 1;
-N0V = 1.7; finalRatios_N0 = zeros(size(initRatios, 1), length(N0V));
-
-for ipslow = 1 : length(pslow)
-    
-for iN = 1 : length(N0V)
-
-fprintf('N0 = %f\n', N0V(iN))
-load 'parameters_local_2_cell7_ID681_tuned2.mat'
-Parameters(10) = 0.6;
-Parameters(3)  = Parameters(3) * N0V(iN);
-Parameters(10) = Parameters(10) / N0V(iN);
-Parameters(11) = Parameters(11) / N0V(iN);
-
-Output_Biomass = zeros(size(initRatios, 1), 3);
-Output_Sizes   = zeros(size(initRatios, 1), 3);
-Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
-
-for iter = 1 : size(initRatios, 1)
-    
-    initialRatio = initRatios(iter, :);   % initial ratio of all species
-    initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
-    filename = ['Lower HS growth\' prefix '_N' num2str(iN)];
-    SetParameters
-    aCs_act(3) = pslow(ipslow) * Parameters(4); % ### lower HS growth rate ###
-%     gs(3) = 2.5 * Parameters(5);   
-    save([filename '_parameters.mat'])
-    
-    filename = [filename '_' num2str(iter,'%02d')]; % '_' num2str(pslow(ipslow),'%.2f')];
-    BranchingColonyMultispecies_Core
-    SaveFigure
-    save([filename '.mat'], 'BiomassV', 'C')
-    % save([picname '_' num2str(iter,'%02d') '_' num2str(iN) '.mat'])
-    Output_Biomass(iter, :) = Biomass;
-    Output_Sizes(iter, :) = Sizes;
-    
-    LiquidCulture
-    Output_Biomass_Liq(iter, :) = Biomass;
-    save([filename '_liq.mat'], 'BiomassV', 'N', 'C')
-    fprintf('iter = %d\n', iter)
-    
-end
-
-finalRatio = Output_Biomass(:, ra) ./ Output_Biomass(:, rb);
-finalRatios_N0(:, iN) = finalRatio;
-save([filename '_results.mat'], 'initRatios', 'Output_Biomass', 'Output_Sizes', 'Output_Biomass_Liq')
-
-end
-
-save(['Lower HS growth\' prefix '_varyN0_upper0.6.mat'], 'N0V', 'finalRatios_N0')
-
-end
