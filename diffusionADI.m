@@ -1,4 +1,4 @@
-function [V1,V2,U1,U2] = diffusion(dx,dy,nx,ny,dt,D)
+function [V1,V2,U1,U2] = diffusionADI(dx,dy,nx,ny,dt,D)
 
 % Get operation matrices for solving diffusion equation using ADI method
 rx = dt / dx^2;
