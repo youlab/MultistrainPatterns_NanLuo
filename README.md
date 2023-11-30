@@ -1,6 +1,6 @@
 # MultistrainPatterns_NanLuo
 
-A coarse-grained model for branching formation of multispecies colonies
+A coarse-grained model for multi-strain competition & evolution in branching colonies
 
 by Nan Luo, Lingchong You Lab at Duke University, Apr 2021
 
