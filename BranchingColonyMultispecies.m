@@ -24,7 +24,7 @@ end
 save('results\Fig4B_biomass.mat', 'initRatios', 'Output_Biomass')
 
 
-%% Figure S9 (& Figure 5A)
+%% Figure S15 (& Figure 5A)
 % Competition between species on solid or in liquid
 % compute final ratios when initiate with varying initial ratios
 
