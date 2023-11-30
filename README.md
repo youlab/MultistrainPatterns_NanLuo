@@ -1,9 +1,8 @@
 # MultistrainPatterns_NanLuo
 
 A coarse-grained model for branching formation of multispecies colonies
-by Nan Luo
-Lingchong You Lab at Duke University
-2021.4
+
+by Nan Luo, Lingchong You Lab at Duke University, Apr 2021
 
 
 Use **BranchingColonyMultispecies.m** to generate data for figures in the manuscript: 
